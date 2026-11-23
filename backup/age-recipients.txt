@@ -1,0 +1,3 @@
+# age PUBLIC key(s) used to encrypt nightly database backups (one per line, starting with age1).
+# Generate the key pair OFFLINE:   age-keygen -o muthaker-backup.key
+# Paste ONLY the printed public key ("age1...") below. Never commit the private key.

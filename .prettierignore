@@ -1,0 +1,12 @@
+dist
+build
+coverage
+node_modules
+src/generated
+openapi
+postman
+prisma/migrations
+CHANGELOG.md
+package-lock.json
+.vercel
+*.hbs

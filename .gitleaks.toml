@@ -1,0 +1,19 @@
+title = "muthaker gitleaks config"
+
+[extend]
+useDefault = true
+
+# Known non-secrets: local-only placeholder credentials used by docker-compose, tests and .env.example.
+[allowlist]
+description = "Local development placeholders"
+paths = [
+  '''(^|/)package-lock\.json$''',
+  '''(^|/)openapi/openapi\.json$''',
+  '''(^|/)postman/.*\.json$''',
+]
+regexes = [
+  '''minioadmin''',
+  '''change-me-[a-z-]+''',
+  '''test-[a-z]+-secret[a-z0-9-]*''',
+  '''muthaker:muthaker@''',
+]

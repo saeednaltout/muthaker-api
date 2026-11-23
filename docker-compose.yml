@@ -1,0 +1,130 @@
+# Local infrastructure for the Muthaker API.
+#   npm run infra:up      → start everything (API runs on the host with `npm run start:dev`)
+#   docker compose --profile full up -d   → also run the API in a dev container
+#
+# NOTE: MinIO stopped publishing images to Docker Hub (minio/minio no longer exists).
+# We use Chainguard's free, source-built images instead (same binary, same S3 API).
+name: muthaker
+
+services:
+  postgres:
+    image: postgres:17-alpine # keep the major version equal to the Supabase project
+    environment:
+      POSTGRES_USER: muthaker
+      POSTGRES_PASSWORD: muthaker
+      POSTGRES_DB: muthaker
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U muthaker -d muthaker']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  postgres-test:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: muthaker
+      POSTGRES_PASSWORD: muthaker
+      POSTGRES_DB: muthaker_test
+    ports:
+      - '5433:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    command:
+      ['postgres', '-c', 'fsync=off', '-c', 'synchronous_commit=off', '-c', 'full_page_writes=off']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U muthaker -d muthaker_test']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      # Browser uploads via presigned URLs come from the web origin
+      MINIO_API_CORS_ALLOW_ORIGIN: http://localhost:3000
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio-init:
+    image: cgr.dev/chainguard/minio-client:latest-dev
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        set -e
+        mc alias set local http://minio:9000 minioadmin minioadmin
+        mc mb --ignore-existing local/avatars
+        mc mb --ignore-existing local/attachments
+        mc anonymous set download local/avatars
+        mc anonymous set none local/attachments
+        echo "buckets ready"
+    restart: 'no'
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - '1025:1025' # SMTP
+      - '8025:8025' # web UI
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    profiles: ['full']
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://muthaker:muthaker@postgres:5432/muthaker
+      DIRECT_URL: postgresql://muthaker:muthaker@postgres:5432/muthaker
+      S3_ENDPOINT: http://minio:9000
+      SMTP_HOST: mailpit
+      REDIS_URL: redis://redis:6379
+    ports:
+      - '4000:4000'
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  minio-data:

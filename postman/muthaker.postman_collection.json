@@ -1,0 +1,359 @@
+{
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "exec": [
+          "pm.test('status is not a server error', function () {",
+          "  pm.expect(pm.response.code).to.be.below(500);",
+          "});",
+          "pm.test('response time is acceptable', function () {",
+          "  pm.expect(pm.response.responseTime).to.be.below(5000);",
+          "});",
+          "pm.test('response is JSON', function () {",
+          "  if (pm.response.code === 204) return;",
+          "  pm.expect(pm.response.headers.get('Content-Type') || '').to.include('application/json');",
+          "});"
+        ],
+        "type": "text/javascript"
+      }
+    }
+  ],
+  "info": {
+    "_postman_id": "8c0b240a-bd29-9b28-33d1-9d0f4c6d202b",
+    "description": {
+      "content": "REST API of Muthaker («مُذاكِر»). Errors always use `{ statusCode, code, message, details?, requestId }`.",
+      "type": "text/plain"
+    },
+    "name": "muthaker",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "description": {
+        "content": "",
+        "type": "text/plain"
+      },
+      "event": [],
+      "id": "5eaa0b4d-80ec-8a24-bef2-874681f3071c",
+      "item": [
+        {
+          "event": [],
+          "id": "8774c5f6-65be-a4c2-0cc7-0292661b5242",
+          "name": "Liveness and database check",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "description": {},
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET",
+            "name": "Liveness and database check",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ],
+              "query": [],
+              "raw": "{{baseUrl}}/health",
+              "variable": []
+            }
+          },
+          "response": [
+            {
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"status\": \"ok\",\n  \"db\": \"up\",\n  \"version\": \"0.1.0\"\n}",
+              "code": 200,
+              "cookie": [],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "id": "37846078-48a3-7427-bae1-73617a22271a",
+              "originalRequest": {
+                "body": {},
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "GET",
+                "url": {
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "health"
+                  ],
+                  "query": [],
+                  "raw": "{{baseUrl}}/health",
+                  "variable": []
+                }
+              },
+              "status": "OK"
+            }
+          ]
+        }
+      ],
+      "name": "health"
+    },
+    {
+      "description": {
+        "content": "",
+        "type": "text/plain"
+      },
+      "event": [],
+      "id": "1fefd6ea-2157-c5f4-b4cb-fc51691e3099",
+      "item": [
+        {
+          "event": [],
+          "id": "05cb2c06-2442-8b24-ebd7-1f178de08a7c",
+          "name": "Delete expired auth tokens",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{cronSecret}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": {},
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "name": "Delete expired auth tokens",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "internal",
+                "cron",
+                "cleanup"
+              ],
+              "query": [],
+              "raw": "{{baseUrl}}/internal/cron/cleanup",
+              "variable": []
+            }
+          },
+          "response": [
+            {
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"refreshTokens\": 40,\n  \"verificationTokens\": 5\n}",
+              "code": 200,
+              "cookie": [],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "id": "8d95d149-1493-6df0-7ed0-f76347fb957d",
+              "originalRequest": {
+                "body": {},
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "url": {
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "internal",
+                    "cron",
+                    "cleanup"
+                  ],
+                  "query": [],
+                  "raw": "{{baseUrl}}/internal/cron/cleanup",
+                  "variable": []
+                }
+              },
+              "status": "OK"
+            },
+            {
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"statusCode\": 400,\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"Validation failed\",\n  \"requestId\": \"7b0c3f3e-1d7a-4a4b-9a8e-2f5e1c9b2d11\",\n  \"details\": {}\n}",
+              "code": 401,
+              "cookie": [],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "id": "fab92fd8-6903-44d4-bdb3-57ad97a32a68",
+              "originalRequest": {
+                "body": {},
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "url": {
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "internal",
+                    "cron",
+                    "cleanup"
+                  ],
+                  "query": [],
+                  "raw": "{{baseUrl}}/internal/cron/cleanup",
+                  "variable": []
+                }
+              },
+              "status": "Unauthorized"
+            }
+          ]
+        },
+        {
+          "event": [],
+          "id": "d5baf87d-2c4a-ebb8-cbc8-4c39b3c1aeab",
+          "name": "Process due outbox jobs (emails, ...)",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{cronSecret}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": {},
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "name": "Process due outbox jobs (emails, ...)",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "internal",
+                "cron",
+                "outbox"
+              ],
+              "query": [],
+              "raw": "{{baseUrl}}/internal/cron/outbox",
+              "variable": []
+            }
+          },
+          "response": [
+            {
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"processed\": 3,\n  \"succeeded\": 3,\n  \"failed\": 0,\n  \"purged\": 12\n}",
+              "code": 200,
+              "cookie": [],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "id": "2e2b3f31-896c-297f-484b-f8c8cdc71308",
+              "originalRequest": {
+                "body": {},
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "url": {
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "internal",
+                    "cron",
+                    "outbox"
+                  ],
+                  "query": [],
+                  "raw": "{{baseUrl}}/internal/cron/outbox",
+                  "variable": []
+                }
+              },
+              "status": "OK"
+            },
+            {
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"statusCode\": 400,\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"Validation failed\",\n  \"requestId\": \"7b0c3f3e-1d7a-4a4b-9a8e-2f5e1c9b2d11\",\n  \"details\": {}\n}",
+              "code": 401,
+              "cookie": [],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "id": "70855218-2ba0-06d7-b95b-f7d67cde2e66",
+              "originalRequest": {
+                "body": {},
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "url": {
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "internal",
+                    "cron",
+                    "outbox"
+                  ],
+                  "query": [],
+                  "raw": "{{baseUrl}}/internal/cron/outbox",
+                  "variable": []
+                }
+              },
+              "status": "Unauthorized"
+            }
+          ]
+        }
+      ],
+      "name": "internal"
+    }
+  ],
+  "variable": []
+}

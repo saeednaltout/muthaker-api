@@ -1,0 +1,49 @@
+name: Backup production database
+
+# Supabase Free has no automatic backups. Nightly pg_dump, encrypted with `age` to the PUBLIC
+# key(s) in backup/age-recipients.txt (the private key is kept offline). Artifacts: 90 days.
+# Restore: age -d -i key.txt backup.dump.age > backup.dump && pg_restore -d "$URL" backup.dump
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check recipients
+        id: recipients
+        run: |
+          if grep -q '^age1' backup/age-recipients.txt; then echo "ok=true" >> "$GITHUB_OUTPUT";
+          else echo "::warning::No age public key in backup/age-recipients.txt — skipping backup."; fi
+      - name: Install pg_dump 17 and age
+        if: steps.recipients.outputs.ok == 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common age
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+      - name: Dump and encrypt
+        if: steps.recipients.outputs.ok == 'true'
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: |
+          set -euo pipefail
+          FILE="muthaker-prod-$(date -u +%Y%m%dT%H%M%SZ).dump.age"
+          /usr/lib/postgresql/17/bin/pg_dump "$DIRECT_URL" --format=custom --no-owner --no-acl \
+            | age -R backup/age-recipients.txt -o "$FILE"
+          echo "FILE=$FILE" >> "$GITHUB_ENV"
+          ls -lh "$FILE"
+      - uses: actions/upload-artifact@v7
+        if: steps.recipients.outputs.ok == 'true'
+        with:
+          name: ${{ env.FILE }}
+          path: ${{ env.FILE }}
+          retention-days: 90
+          if-no-files-found: error

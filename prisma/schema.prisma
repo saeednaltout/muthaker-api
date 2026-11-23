@@ -1,0 +1,140 @@
+// Muthaker — Prisma schema (foundation).
+// Conventions: snake_case tables/columns via @@map/@map, uuid ids, index every FK.
+// Every new table MUST get `ALTER TABLE "<name>" ENABLE ROW LEVEL SECURITY;` in its migration.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  importFileExtension = ""
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  STUDENT
+  SUPERVISOR
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING_APPROVAL
+  SUSPENDED
+}
+
+enum AuthProvider {
+  GOOGLE
+}
+
+enum Locale {
+  ar
+  en
+}
+
+enum VerificationTokenType {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
+model User {
+  id                    String     @id @default(uuid()) @db.Uuid
+  email                 String     @unique
+  /// Null for Google-only accounts.
+  passwordHash          String?    @map("password_hash")
+  name                  String
+  /// Set once the user picked a role (Google users pick it after first sign-in).
+  onboardingCompletedAt DateTime?  @map("onboarding_completed_at")
+  role                  Role       @default(STUDENT)
+  status                UserStatus @default(ACTIVE)
+  /// Short human-friendly code used for invitations, e.g. K7P-2QX9. Regenerable.
+  publicCode            String     @unique @map("public_code")
+  locale                Locale     @default(ar)
+  avatarKey             String?    @map("avatar_key")
+  emailVerifiedAt       DateTime?  @map("email_verified_at")
+  createdAt             DateTime   @default(now()) @map("created_at")
+  updatedAt             DateTime   @updatedAt @map("updated_at")
+
+  accounts           Account[]
+  refreshTokens      RefreshToken[]
+  verificationTokens VerificationToken[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String       @id @default(uuid()) @db.Uuid
+  userId            String       @map("user_id") @db.Uuid
+  provider          AuthProvider
+  /// Google `sub`.
+  providerAccountId String       @map("provider_account_id")
+  email             String
+  createdAt         DateTime     @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  /// All tokens of one login share a family; reuse of a revoked token revokes the family.
+  familyId  String    @map("family_id") @db.Uuid
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  userAgent String?   @map("user_agent")
+  ip        String?
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model VerificationToken {
+  id        String                @id @default(uuid()) @db.Uuid
+  userId    String                @map("user_id") @db.Uuid
+  type      VerificationTokenType
+  tokenHash String                @unique @map("token_hash")
+  expiresAt DateTime              @map("expires_at")
+  usedAt    DateTime?             @map("used_at")
+  createdAt DateTime              @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@index([expiresAt])
+  @@map("verification_tokens")
+}
+
+model Outbox {
+  id        String       @id @default(uuid()) @db.Uuid
+  /// Job type, e.g. "mail.send".
+  type      String
+  payload   Json
+  status    OutboxStatus @default(PENDING)
+  attempts  Int          @default(0)
+  runAt     DateTime     @default(now()) @map("run_at")
+  lastError String?      @map("last_error")
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  @@index([status, runAt])
+  @@map("outbox")
+}

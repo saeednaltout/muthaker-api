@@ -1,0 +1,37 @@
+name: Migrate database
+
+# Migrations are NOT run in the Vercel build. They run here, independently of the deploy,
+# so every migration must be backward compatible (expand → deploy → contract).
+on:
+  push:
+    branches: [develop, main]
+    paths: ['prisma/migrations/**', 'prisma/schema.prisma']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migrate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    # GitHub Environments hold the secret DIRECT_URL (direct or session pooler, port 5432).
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: prisma migrate deploy
+        run: npx prisma migrate deploy
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      - name: RLS enabled on every table
+        run: npm run db:check-rls
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}

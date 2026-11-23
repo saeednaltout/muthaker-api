@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main, 'release/**']
+  push:
+    branches: [develop, main]
+
+# Least privilege. Fork PRs run with a read-only token and NO secrets (no pull_request_target).
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITLEAKS_VERSION: 8.30.1
+
+jobs:
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar -xz gitleaks
+          sudo mv gitleaks /usr/local/bin/
+      - name: Scan full history
+        run: gitleaks git --redact --no-banner --config .gitleaks.toml -v
+
+  quality:
+    name: Format, lint, types, unit tests, contract, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npx prisma validate
+      - run: npm run test:cov
+      - name: OpenAPI + Postman are up to date
+        run: npm run postman:check
+      - run: npm run build
+
+  e2e:
+    name: E2E (Postgres, MinIO, Mailpit) + RLS + smoke
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: muthaker
+          POSTGRES_PASSWORD: muthaker
+          POSTGRES_DB: muthaker_test
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd "pg_isready -U muthaker -d muthaker_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      mailpit:
+        image: axllent/mailpit:latest
+        ports: ['1025:1025', '8025:8025']
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://muthaker:muthaker@localhost:5433/muthaker_test
+      DIRECT_URL: postgresql://muthaker:muthaker@localhost:5433/muthaker_test
+      WEB_ORIGIN: http://localhost:3000
+      WEB_APP_URL: http://localhost:3000
+      JWT_ACCESS_SECRET: ci-access-secret-ci-access-secret-ci-access
+      JWT_REFRESH_SECRET: ci-refresh-secret-ci-refresh-secret-ci-refr
+      GOOGLE_CLIENT_ID: ci-client-id.apps.googleusercontent.com
+      GOOGLE_CLIENT_SECRET: ci-google-secret
+      GOOGLE_REDIRECT_URI: http://localhost:3000/api/v1/auth/google/callback
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY_ID: minioadmin
+      S3_SECRET_ACCESS_KEY: minioadmin
+      S3_FORCE_PATH_STYLE: 'true'
+      SMTP_HOST: localhost
+      SMTP_PORT: '1025'
+      MAIL_FROM: Muthaker CI <ci@muthaker.local>
+      REDIS_URL: ''
+      CRON_SECRET: ci-cron-secret-ci-cron-secret-ci-cron-secret
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Start MinIO and create buckets
+        # Service containers cannot take a command; MinIO needs `server /data`.
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+            cgr.dev/chainguard/minio:latest server /data
+          for i in $(seq 1 30); do curl -sf http://localhost:9000/minio/health/ready && break; sleep 1; done
+          docker run --rm --network host --entrypoint /bin/sh cgr.dev/chainguard/minio-client:latest-dev -c '
+            mc alias set local http://localhost:9000 minioadmin minioadmin &&
+            mc mb --ignore-existing local/avatars local/attachments &&
+            mc anonymous set download local/avatars'
+      - run: npm ci
+      - run: npm run db:deploy
+      - name: RLS enabled on every table
+        run: npm run db:check-rls
+      - run: npm run test:e2e
+      - run: npm run build
+      - name: Smoke test the built API with newman
+        run: |
+          PORT=4000 NODE_ENV=production node dist/main.js > api.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:4000/api/v1/health && break; sleep 1; done
+          npm run test:smoke
+      - name: API logs on failure
+        if: failure()
+        run: cat api.log || true

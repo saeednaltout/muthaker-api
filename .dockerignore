@@ -1,0 +1,15 @@
+node_modules
+dist
+coverage
+.git
+.github
+.husky
+.vercel
+.env
+.env.*
+!.env.example
+*.log
+postman
+openapi
+test
+src/generated

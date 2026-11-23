@@ -1,0 +1,30 @@
+name: Feature request
+description: Propose a new feature or an improvement
+labels: [feature]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Who needs this and why? (student, supervisor, admin)
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Endpoints, data, screens, acceptance criteria.
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy & safety
+      description: Most users are minors. What data is collected? Who can see it?
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues.
+          required: true

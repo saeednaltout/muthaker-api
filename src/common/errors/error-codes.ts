@@ -1,0 +1,51 @@
+/**
+ * Stable, UPPER_SNAKE error codes returned in every error response (`code`).
+ * The web app translates them via `errors.<CODE>` in messages/{ar,en}.json.
+ * Never rename a code once shipped; add new ones instead.
+ */
+export const ErrorCode = {
+  // generic
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  VALIDATION_FAILED: 'VALIDATION_FAILED',
+  BAD_REQUEST: 'BAD_REQUEST',
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  FORBIDDEN: 'FORBIDDEN',
+  NOT_FOUND: 'NOT_FOUND',
+  ROUTE_NOT_FOUND: 'ROUTE_NOT_FOUND',
+  CONFLICT: 'CONFLICT',
+  PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
+  TOO_MANY_REQUESTS: 'TOO_MANY_REQUESTS',
+  SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
+
+  // auth (used by the Auth & Roles feature)
+  AUTH_INVALID_CREDENTIALS: 'AUTH_INVALID_CREDENTIALS',
+  AUTH_TOKEN_EXPIRED: 'AUTH_TOKEN_EXPIRED',
+  AUTH_TOKEN_INVALID: 'AUTH_TOKEN_INVALID',
+  AUTH_ACCOUNT_SUSPENDED: 'AUTH_ACCOUNT_SUSPENDED',
+  AUTH_ACCOUNT_PENDING_APPROVAL: 'AUTH_ACCOUNT_PENDING_APPROVAL',
+  AUTH_EMAIL_NOT_VERIFIED: 'AUTH_EMAIL_NOT_VERIFIED',
+  AUTH_EMAIL_TAKEN: 'AUTH_EMAIL_TAKEN',
+  AUTH_INSUFFICIENT_ROLE: 'AUTH_INSUFFICIENT_ROLE',
+
+  // storage
+  STORAGE_FILE_TOO_LARGE: 'STORAGE_FILE_TOO_LARGE',
+  STORAGE_CONTENT_TYPE_NOT_ALLOWED: 'STORAGE_CONTENT_TYPE_NOT_ALLOWED',
+  STORAGE_QUOTA_EXCEEDED: 'STORAGE_QUOTA_EXCEEDED',
+
+  // internal / cron
+  CRON_UNAUTHORIZED: 'CRON_UNAUTHORIZED',
+} as const;
+
+export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
+
+/** Default code for each HTTP status when a plain Nest HttpException is thrown. */
+export const statusToErrorCode: Partial<Record<number, ErrorCode>> = {
+  400: ErrorCode.BAD_REQUEST,
+  401: ErrorCode.UNAUTHORIZED,
+  403: ErrorCode.FORBIDDEN,
+  404: ErrorCode.NOT_FOUND,
+  409: ErrorCode.CONFLICT,
+  413: ErrorCode.PAYLOAD_TOO_LARGE,
+  429: ErrorCode.TOO_MANY_REQUESTS,
+  503: ErrorCode.SERVICE_UNAVAILABLE,
+};

@@ -1,0 +1,11 @@
+npx lint-staged
+
+# Secret scan of staged changes (CI runs it too, so it is enforced even if not installed locally).
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --staged --redact --no-banner --config .gitleaks.toml || {
+    echo "gitleaks found a possible secret in staged files. Commit aborted."
+    exit 1
+  }
+else
+  echo "warning: gitleaks is not installed; skipping local secret scan (CI will run it)."
+fi
