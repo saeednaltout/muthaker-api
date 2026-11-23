@@ -42,7 +42,8 @@ export default {
         'release',
       ],
     ],
-    'subject-case': [2, 'always', 'lower-case'],
+    // Lowercase START (identifiers like DIRECT_URL are allowed inside the subject).
+    'subject-case': [2, 'never', ['sentence-case', 'start-case', 'pascal-case', 'upper-case']],
     'subject-full-stop': [2, 'never', '.'],
     'header-max-length': [2, 'always', 72],
     'body-max-line-length': [2, 'always', 100],

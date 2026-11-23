@@ -20,18 +20,27 @@ jobs:
     runs-on: ubuntu-latest
     # GitHub Environments hold the secret DIRECT_URL (direct or session pooler, port 5432).
     environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    env:
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
     steps:
+      - name: Check DIRECT_URL secret
+        id: secret
+        run: |
+          if [ -n "$DIRECT_URL" ]; then echo "ok=true" >> "$GITHUB_OUTPUT";
+          else echo "::warning::DIRECT_URL is not set for this environment — skipping migrations."; fi
       - uses: actions/checkout@v7
+        if: steps.secret.outputs.ok == 'true'
       - uses: actions/setup-node@v7
+        if: steps.secret.outputs.ok == 'true'
         with:
           node-version-file: .nvmrc
           cache: npm
-      - run: npm ci --ignore-scripts
+      # Full `npm ci`: Prisma's install script downloads the schema engine (allowScripts).
+      - run: npm ci
+        if: steps.secret.outputs.ok == 'true'
       - name: prisma migrate deploy
+        if: steps.secret.outputs.ok == 'true'
         run: npx prisma migrate deploy
-        env:
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
       - name: RLS enabled on every table
+        if: steps.secret.outputs.ok == 'true'
         run: npm run db:check-rls
-        env:
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
